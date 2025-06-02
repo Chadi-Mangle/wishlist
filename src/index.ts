@@ -21,7 +21,7 @@ const CWishlist_GetWishlist_Response = SERVICE_WISHLIST_PROTO.lookupType('CWishl
 app.get('/wishlist', async (c) => {
   try {
     const steamId = c.req.query('id');
-
+    
     if (!steamId) {
       return c.json({ error: 'Steam ID is required as a query parameter.' }, 400);
     }
@@ -37,18 +37,20 @@ app.get('/wishlist', async (c) => {
       baseURL: BASE_URL,
       url: 'IWishlistService/GetWishlist/v1',
       params: {
-        input_protobuf_encoded: getWishlistRequestBuffer.toString('base64'),
+        input_protobuf_encoded: Buffer.from(getWishlistRequestBuffer).toString('base64'),
       },
       responseType: 'arraybuffer',
     });
 
     const getWishlistResponse = CWishlist_GetWishlist_Response.decode(response.data);
-
     const wishlist = CWishlist_GetWishlist_Response.toObject(getWishlistResponse, { longs: Number });
 
     return c.json({ wishlist });
   } catch (error) {
-    return c.json({ error: error.message }, 500);
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500);
+    }
+    return c.json({ error: 'An unexpected error occurred.' }, 500);
   }
 })
 
