@@ -6,6 +6,11 @@
     "build": "tsc",
     "start": "node dist/index.js"
   },
+  "imports": {
+    "#utils/*": "./dist/utils/*.js",
+    "#types": "./dist/types/index.js"
+
+  },
   "dependencies": {
     "@hono/node-server": "^1.14.3",
     "axios": "^1.9.0",

@@ -1,22 +1,14 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
-import * as dotenv from 'dotenv';
-import protobuf from 'protobufjs';
-import axios from 'axios';
 
-dotenv.config()
+import { getSteamWishlist } from '#utils/steam/wishlist'
+import { getGameDetails } from '#utils/steam/wishlist';
 
 const app = new Hono()
 
 app.get('/', (c) => {
   return c.text('Hello Hono!')
 })
-
-const BASE_URL = 'https://api.steampowered.com/';
-const SERVICE_WISHLIST_PROTO = protobuf.loadSync('./protos/service_wishlist.proto');
-
-const CWishlist_GetWishlist_Request = SERVICE_WISHLIST_PROTO.lookupType('CWishlist_GetWishlist_Request');
-const CWishlist_GetWishlist_Response = SERVICE_WISHLIST_PROTO.lookupType('CWishlist_GetWishlist_Response');
 
 app.get('/wishlist', async (c) => {
   try {
@@ -26,26 +18,9 @@ app.get('/wishlist', async (c) => {
       return c.json({ error: 'Steam ID is required as a query parameter.' }, 400);
     }
 
-    const getWishlistRequest = CWishlist_GetWishlist_Request.create({
-      steamid: steamId,
-    });
+    const wishlist = await getSteamWishlist(steamId);
+    return c.json(wishlist);
 
-    const getWishlistRequestBuffer = CWishlist_GetWishlist_Request.encode(getWishlistRequest).finish();
-
-    const response = await axios({
-      method: 'get',
-      baseURL: BASE_URL,
-      url: 'IWishlistService/GetWishlist/v1',
-      params: {
-        input_protobuf_encoded: Buffer.from(getWishlistRequestBuffer).toString('base64'),
-      },
-      responseType: 'arraybuffer',
-    });
-
-    const getWishlistResponse = CWishlist_GetWishlist_Response.decode(response.data);
-    const wishlist = CWishlist_GetWishlist_Response.toObject(getWishlistResponse, { longs: Number });
-
-    return c.json({ wishlist });
   } catch (error) {
     if (error instanceof Error) {
       return c.json({ error: error.message }, 500);
@@ -54,9 +29,33 @@ app.get('/wishlist', async (c) => {
   }
 })
 
+app.get('/game-details', async (c) => {
+  try {
+    const appId = c.req.query('id');
+
+    if (!appId) {
+      return c.json({ error: 'App ID is required as a query parameter.' }, 400);
+    }
+
+    const gameDetails = await getGameDetails(Number(appId));
+
+    if (!gameDetails) {
+      return c.json({ error: 'Failed to fetch game details.' }, 404);
+    }
+
+    return c.json(gameDetails);
+  } catch (error) {
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500);
+    }
+    return c.json({ error: 'An unexpected error occurred.' }, 500);
+  }
+});
+
+
 serve({
   fetch: app.fetch,
-  port: 3000
+  port: 3030
 }, (info) => {
   console.log(`Server is running on http://localhost:${info.port}`)
 })
